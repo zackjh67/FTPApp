@@ -24,7 +24,7 @@ class FTPClient {
         StringTokenizer tokens = new StringTokenizer(sentence);
 
 
-        if (sentence.startsWith("connect")) {
+        if (sentence.toUpperCase().startsWith("CONNECT")) {
             String serverName = tokens.nextToken(); // pass the connect command
             serverName = tokens.nextToken();
             port1 = Integer.parseInt(tokens.nextToken());
@@ -41,24 +41,26 @@ class FTPClient {
 
                 sentence = inFromUser.readLine();
 
-                if (sentence.equals("list:")) {
+                if (sentence.toUpperCase().equals("LIST:")) {
 
-                    port = port + 2;
-                    System.out.println(port);
-                    ServerSocket welcomeData = new ServerSocket(port);
-                    outToServer.writeBytes(port + " " + sentence + " " + '\n');
+                    port1 = port1 + 2;
+                    ServerSocket welcomeData = new ServerSocket(port1);
+                    outToServer.writeBytes(port1 + " " + sentence + " " + '\n');
 
                     Socket dataSocket = welcomeData.accept();
                     DataInputStream inData = new DataInputStream(new BufferedInputStream(dataSocket.getInputStream()));
                     while (notEnd) {
-                        modifiedSentence = inData.readUTF();
-                        //todo........................................
-                        //todo........................................
+                        modifiedSentence = "" + inData.readUTF();
+                        if(modifiedSentence.equals(" "))
+                            notEnd = false;
+                        //todo remove this print statement i think
+                        System.out.println("modified sentence: " + modifiedSentence);
                     }
-
 
                     welcomeData.close();
                     dataSocket.close();
+                    //make notEnd true again
+                    notEnd = true;
                     System.out.println("\nWhat would you like to do next: \n retr: file.txt ||  				stor: file.txt  || close");
 
                 } else if (sentence.startsWith("retr: ")) {
