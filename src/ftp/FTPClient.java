@@ -8,132 +8,274 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.lang.*;
 
+/****************************************************************
+ * Client application that connects to a server, requests
+ * a list of the server's files, retrieve a specified file
+ * from the server, and send and store a specified file to
+ * the server.
+ *
+ * @author Mike Ames
+ * @author Phil Garza
+ * @author Zachary Hern
+ * @author Adam Slifco
+ *
+ * @version October 2017
+ ******************************************************************/
 class FTPClient {
 
+    /* EOF character*/
+    static final String EOF = "!EOF!";
+
+    /* filepath for client files */
+    static final String clientFilePath = "./res/client_files/";
+
+    /******************************************************************
+     * Main method for running program based on commands.
+     ******************************************************************/
     public static void main(String argv[]) throws Exception {
+        /* sentence from user */
         String sentence;
-        String modifiedSentence;
+
+        /* if socket is still open */
         boolean isOpen = true;
-        int number = 1;
-        boolean notEnd = true;
-        String statusCode;
+
+        /* if client still connected */
         boolean clientgo = true;
-        int port1;
 
+        /* port to service*/
+        int port;
 
+        /* socket for passing data */
+        Socket dataSocket = null;
+
+        // user greeting
+        System.out.println("Welcome!\nPlease connect to server with: " +
+                "CONNECT <server name/IP address> <server port>" +
+                "\nFor Example: CONNECT localhost 8415" +
+                "\nThen type command from command list below" +
+                "\nLIST (list files on server)" +
+                "\nRETR <filename> (retrieves specified file from server)" +
+                "\nSTOR <filename> (stores specified file on server)" +
+                "\nQUIT (quits program)");
+
+        /* User input */
         BufferedReader inFromUser =
                 new BufferedReader(new InputStreamReader(System.in));
         sentence = inFromUser.readLine();
+        /* tokenizer for user input */
         StringTokenizer tokens = new StringTokenizer(sentence);
 
-
+        // check for "CONNECT" command ignoring case
         if (sentence.toUpperCase().startsWith("CONNECT")) {
-            String serverName = tokens.nextToken(); // pass the connect command
+
+            /* name of server */
+            // pass the connect command
+            String serverName = tokens.nextToken();
             serverName = tokens.nextToken();
-            port1 = Integer.parseInt(tokens.nextToken());
-            System.out.println("You are connected to " + serverName);
+            port = Integer.parseInt(tokens.nextToken());
 
-            Socket ControlSocket = new Socket(serverName, port1);
+            // connect message
+            System.out.println("You are connected to " + serverName + "\n");
 
+            // control socket for connection
+            Socket ControlSocket = new Socket(serverName, port);
+
+            // while the socket is open and client wishes to be connected
             while (isOpen && clientgo) {
 
-                DataOutputStream outToServer =
+                /* data passed to server */
+                DataOutputStream controlOut =
                         new DataOutputStream(ControlSocket.getOutputStream());
 
-                DataInputStream inFromServer = new DataInputStream(new BufferedInputStream(ControlSocket.getInputStream()));
+                /* data passed to client */
+                DataInputStream controlIn =
+                        new DataInputStream(
+                                new BufferedInputStream(
+                                        ControlSocket.getInputStream()));
 
+                // line typed by user
                 sentence = inFromUser.readLine();
 
-                if (sentence.toUpperCase().equals("LIST:")) {
-
-                    port1 = port1 + 2;
-                    ServerSocket welcomeData = new ServerSocket(port1);
-                    outToServer.writeBytes(port1 + " " + sentence + " " + '\n');
-
-                    Socket dataSocket = welcomeData.accept();
-                    DataInputStream inData = new DataInputStream(new BufferedInputStream(dataSocket.getInputStream()));
-                    while (notEnd) {
-                        modifiedSentence = "" + inData.readUTF();
-
-                        if (modifiedSentence.equals(" "))
-                            notEnd = false;
-                        //todo remove this print statement i think
-                        System.out.println("modified sentence: " + modifiedSentence);
-                    }
-
-                    welcomeData.close();
-                    dataSocket.close();
-                    //make notEnd true again
-                    notEnd = true;
-                    System.out.println("\nWhat would you like to do next: \n retr: file.txt || stor: file.txt  || close");
-
-                } else if (sentence.toUpperCase().startsWith("RETR:")) {
-
-                    //Create server socket
-                    int dPort = port1 + 2;
-                    ServerSocket welcomeData = new ServerSocket(dPort);
-                    outToServer.writeBytes(dPort + " " + sentence + " " + '\n');
-
-                    //Establish connection with data socket
-                    Socket dataSocket = welcomeData.accept();
-                    //Read user input
-                    DataInputStream inData = new DataInputStream(new BufferedInputStream(dataSocket.getInputStream()));
-                    StringBuffer stringBuffer = new StringBuffer();
-
-                    //get the Filepath
-                    Path filePath = Paths.get("./" + "retrieveSuccess.txt");
-
-                    //Writes the file to the client
+                // check for "LIST" command ignoring case
+                if (sentence.toUpperCase().equals("LIST")) {
                     try {
-
-                        //Retrieves the Status code
-                        String status = inData.readUTF().toString();
-                        System.out.println(status);
-
-                        //Checks to see if the file was found
-                        if (status.equals("200 OK")) {
-                            System.out.println("File Downloaded!");
-
-                            //Writes/downloads the file line by line
-                            String line;
-                            while (!(line = inData.readUTF()).equals("!EOF!")) {
-                                stringBuffer.append(line);
-                            }
-
-                            System.out.println("Downloading File..." + "\n");
-                            Files.write(filePath, stringBuffer.toString().getBytes());
-
-                        } else {
-                            System.out.println("Error. File could not be downloaded.");
-                        }
-
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        list(port, sentence, controlOut, dataSocket);
+                    } catch (Exception e) {
+                        System.out.println(e);
                     }
-
-
-                    //closes client side of the data socket after request
-                    welcomeData.close();
-                    dataSocket.close();
-
-                    //make notEnd true again for future use
-                    notEnd = true;
-                    System.out.println("\nWhat would you like to do next: \n retr: file.txt || stor: file.txt  || close");
-                } else if (sentence.toUpperCase().startsWith("STOR:")) {
-                    stor(port1, sentence, outToServer, inFromServer);
+                    // checks for "RETR" command ignoring case
+                } else if (sentence.toUpperCase().startsWith("RETR")) {
+                    try {
+                        retr(port, sentence, controlOut, dataSocket);
+                    } catch (Exception e) {
+                        System.out.println(e);
+                    }
+                    // checks for "STOR" command ignoring case
+                } else if (sentence.toUpperCase().startsWith("STOR")) {
+                    try {
+                        stor(port, sentence, controlOut, controlIn, dataSocket);
+                    } catch (Exception e) {
+                        System.out.println(e);
+                    }
                 }
 
             }
+            // if client has not connected yet
+        } else if (sentence.toUpperCase().startsWith("LIST")
+                || sentence.toUpperCase().startsWith("RETR")
+                || sentence.toUpperCase().startsWith("STOR")
+                || sentence.toUpperCase().startsWith("QUIT")) {
+            System.out.println("Must be connected first (command:" +
+                    "CONNECT <server name/IP address> <server port>");
+            // if command doesn't match any known command
+        } else {
+            System.out.println("Not a valid command. Please connect first" +
+                    "(command: CONNECT <server name/IP address> <server port>)"
+            );
         }
     }
 
-    private static void stor(int port1, String sentence, DataOutputStream controlOut, DataInputStream controlIn) throws Exception {
-        int dataPortNum = 8417;
+    /******************************************************************
+     * Lists all files in server's directory.
+     *
+     * @param port connection socket port
+     * @param sentence user input
+     * @param controlOut output stream to server
+     * @param dataSocket socket for sending/receiving data
+     *
+     * @return void
+     ******************************************************************/
+    private static void list(int port,
+                             String sentence,
+                             DataOutputStream controlOut,
+                             Socket dataSocket) throws Exception {
+
+        // Create server socket
+        int dPort = port + 2;
+        ServerSocket welcomeData = new ServerSocket(dPort);
+
+        // write user sentence to server
+        controlOut.writeBytes(dPort + " " + sentence + " " + '\n');
+
+        // instantiate dataSocket
+        dataSocket = welcomeData.accept();
+        DataInputStream inData =
+                new DataInputStream(
+                        new BufferedInputStream(dataSocket.getInputStream()));
+        try {
+            /* first UTF line from server */
+            String serverData = inData.readUTF();
+
+            // start printing file list
+            System.out.println("Files on server: \n" + serverData);
+
+            // while server doesn't pass EOF character
+            while (!serverData.equals(EOF)) {
+
+                // continue reading each line and printing file name
+                serverData = inData.readUTF();
+
+                // dont print end of file character
+                if (!serverData.equals(EOF))
+                    System.out.println(serverData);
+            }
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+
+        welcomeData.close();
+        dataSocket.close();
+        endOfCommand();
+    }
+
+    /******************************************************************
+     * Retrieves specified file from server.
+     *
+     * @param port connection socket port
+     * @param sentence user input
+     * @param controlOut output stream to server
+     * @param dataSocket socket for sending/receiving data
+     *
+     * @return void
+     ******************************************************************/
+    private static void retr(int port,
+                             String sentence,
+                             DataOutputStream controlOut,
+                             Socket dataSocket) throws Exception {
+        // Create server socket
+        int dPort = port + 2;
+        ServerSocket welcomeData = new ServerSocket(dPort);
+        controlOut.writeBytes(dPort + " " + sentence + " " + '\n');
+        String[] getFileName = sentence.split(" ", 2);
+
+        // Establish connection with data socket
+        dataSocket = welcomeData.accept();
+        // Read user input
+        DataInputStream inData =
+                new DataInputStream(
+                        new BufferedInputStream(dataSocket.getInputStream()));
+        StringBuffer stringBuffer = new StringBuffer();
+
+        // get the Filepath
+        Path filePath = Paths.get(clientFilePath + getFileName[1]);
+
+        // Writes the file to the client
+        try {
+            // Retrieves the Status code
+            String status = inData.readUTF().toString();
+            System.out.println(status);
+
+            // Checks to see if the file was found
+            if (status.equals("200 OK")) {
+                System.out.println("File Downloaded!");
+
+                // Writes/downloads the file line by line
+                String line;
+                while (!(line = inData.readUTF()).equals(EOF)) {
+                    stringBuffer.append(line);
+                }
+
+                System.out.println("Downloading File..." + "\n");
+                Files.write(filePath, stringBuffer.toString().getBytes());
+
+            } else {
+                System.out.println("Error. File could not be downloaded.");
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // closes client side of the data socket after request
+        welcomeData.close();
+        dataSocket.close();
+        endOfCommand();
+    }
+
+    //TODO controlIn from stor method needs to be removed from comment below and method calls/params
+    // TODO (continued) after 200/550 code issue fixed (see other todos)
+    /******************************************************************
+     * Stores specified file on server.
+     *
+     * @param port connection socket port
+     * @param sentence user input
+     * @param controlOut output stream to server
+     * @param controlIn control socket input stream
+     * @param dataSocket socket for sending/receiving data
+     *
+     * @return void
+     ******************************************************************/
+    private static void stor(int port,
+                             String sentence,
+                             DataOutputStream controlOut,
+                             DataInputStream controlIn,
+                             Socket dataSocket) throws Exception {
+        // Create server socket
+        int dPort = port + 2;
         StringTokenizer tokens = new StringTokenizer(sentence);
         String fileName;
 
-        //get the filename from the user input
+        // get the filename from the user input
         try {
             fileName = tokens.nextToken(); // pass the connect command
             fileName = tokens.nextToken();
@@ -142,9 +284,10 @@ class FTPClient {
             return;
         }
 
-        //Create a file object with the path of the file. Some code from:
-        //http://www.avajava.com/tutorials/lessons/how-do-i-read-a-string-from-a-file-line-by-line.html
-        File file = new File("./" + fileName);
+        // Create a file object with the path of the file. Some code from:
+        // http://www.avajava.com/tutorials/lessons/
+        // how-do-i-read-a-string-from-a-file-line-by-line.html
+        File file = new File(clientFilePath + fileName);
 
         if (!file.exists() || file.isDirectory()) {
             System.out.println("No such file or directory");
@@ -152,12 +295,12 @@ class FTPClient {
         }
 
         //Create a socket to listen on
-        ServerSocket welcomeData = new ServerSocket(dataPortNum);
+        ServerSocket welcomeData = new ServerSocket(dPort);
         //Pass the server the port the client is listening on, and the tcommand
-        controlOut.writeBytes(dataPortNum + " " + sentence + " " + '\n');
+        controlOut.writeBytes(dPort + " " + sentence + " " + '\n');
         //Accept the data socket from the server
-        Socket dataSocket = welcomeData.accept();
-        DataOutputStream dataOutToServer =
+        dataSocket = welcomeData.accept();
+        DataOutputStream datacontrolOut =
                 new DataOutputStream(dataSocket.getOutputStream());
 
         //Read from the file and store in a String Buffer
@@ -168,18 +311,20 @@ class FTPClient {
 
         try {
             while ((line = bufferedReader.readLine()) != null) {
-                //line = String.format(line + "\n", System.getProperty("line.separator"));
-                dataOutToServer.writeUTF(line + System.getProperty("line.separator"));
+                datacontrolOut.writeUTF(line +
+                        System.getProperty("line.separator"));
             }
-            dataOutToServer.writeUTF("!EOF!");
-            dataOutToServer.close();
+            datacontrolOut.writeUTF(EOF);
+            datacontrolOut.close();
             fileReader.close();
             System.out.println("Uploading file . . .");
-            //dataOutToServer.writeUTF(stringBuffer.toString());
+            //datacontrolOut.writeUTF(stringBuffer.toString());
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e);
         }
 
+        //TODO make the status code like it is in retr() method, should be sent on data socket before anything
+        //TODO (continued) needs to be fixed on client and server!
         String status = controlIn.readUTF().toString();
         if (status.equals("200 OK")) {
             System.out.println("File Uploaded!");
@@ -187,5 +332,18 @@ class FTPClient {
             System.out.println("Error. File not uploaded.");
         }
 
+    }
+
+    /*****************************************************************
+     * prints command list upon completion of each command
+     *
+     * @return void
+     ******************************************************************/
+    private static void endOfCommand() {
+        System.out.println("\nWhat would you like to do next?" +
+                "\nLIST (list files on server)" +
+                "\nRETR <filename> (retrieves specified file from server)" +
+                "\nSTOR <filename> (stores specified file on server)" +
+                "\nQUIT (quits program)");
     }
 }
