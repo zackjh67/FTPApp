@@ -27,7 +27,7 @@ class FTPClient {
     static final String EOF = "!EOF!";
 
     /* filepath for client files */
-    static final String clientFilePath = "." + File.separator + "src" + File.separator +
+    static final String clientFilePath = "." + File.separator +
             "client_files" + File.separator;
 
     /******************************************************************
