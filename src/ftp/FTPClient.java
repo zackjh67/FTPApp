@@ -27,7 +27,8 @@ class FTPClient {
     static final String EOF = "!EOF!";
 
     /* filepath for client files */
-    static final String clientFilePath = "./res/client_files/";
+    static final String clientFilePath = System.getProperty("user.dir").toString()+ 
+            File.separator + "client_files" + File.separator;
 
     /******************************************************************
      * Main method for running program based on commands.
@@ -49,92 +50,110 @@ class FTPClient {
         Socket dataSocket = null;
 
         // user greeting
-        System.out.println("Welcome!\nPlease connect to server with: " +
+        System.out.println("Welcome Team Awesome's Super Cool FTP Server!\n\n" +
+                "Please connect to server with: " +
                 "CONNECT <server name/IP address> <server port>" +
                 "\nFor Example: CONNECT localhost 8415" +
                 "\nThen type command from command list below" +
                 "\nLIST (list files on server)" +
                 "\nRETR <filename> (retrieves specified file from server)" +
                 "\nSTOR <filename> (stores specified file on server)" +
-                "\nQUIT (quits program)");
+                "\nCLOSE (closes connection and quits program)");
 
         /* User input */
         BufferedReader inFromUser =
                 new BufferedReader(new InputStreamReader(System.in));
-        sentence = inFromUser.readLine();
-        /* tokenizer for user input */
-        StringTokenizer tokens = new StringTokenizer(sentence);
 
-        // check for "CONNECT" command ignoring case
-        if (sentence.toUpperCase().startsWith("CONNECT")) {
+        // while the socket is open and client wishes to be connected
+        while (clientgo) {
+            //Get input from user
+            sentence = inFromUser.readLine();
+            /* tokenizer for user input */
+            StringTokenizer tokens = new StringTokenizer(sentence);
+            //Take first token as command
+            String myCommand = tokens.nextToken().toUpperCase();
+            if(myCommand.equals("CONNECT") && tokens.countTokens() == 2){
+                
+                /* name of server */
+                //Secodn Token - Port Third
+                String serverName = tokens.nextToken();
+                port = Integer.parseInt(tokens.nextToken());
+                
 
-            /* name of server */
-            // pass the connect command
-            String serverName = tokens.nextToken();
-            serverName = tokens.nextToken();
-            port = Integer.parseInt(tokens.nextToken());
+                Socket ControlSocket;
+                try{
+                    //Try to Create Control Socket for connection
+                    ControlSocket = new Socket(serverName, port);
+                    
+                    /* data passed to server */
+                    DataOutputStream controlOut =
+                    new DataOutputStream(ControlSocket.getOutputStream());
 
-            // connect message
-            System.out.println("You are connected to " + serverName + "\n");
+                    /* data passed to client */
+                    DataInputStream controlIn =
+                            new DataInputStream(
+                                    new BufferedInputStream(
+                                            ControlSocket.getInputStream()));
 
-            // control socket for connection
-            Socket ControlSocket = new Socket(serverName, port);
-
-            // while the socket is open and client wishes to be connected
-            while (isOpen && clientgo) {
-
-                /* data passed to server */
-                DataOutputStream controlOut =
-                        new DataOutputStream(ControlSocket.getOutputStream());
-
-                /* data passed to client */
-                DataInputStream controlIn =
-                        new DataInputStream(
-                                new BufferedInputStream(
-                                        ControlSocket.getInputStream()));
-
-                // line typed by user
-                sentence = inFromUser.readLine();
-
-                // check for "LIST" command ignoring case
-                if (sentence.toUpperCase().equals("LIST")) {
-                    try {
-                        list(port, sentence, controlOut, dataSocket);
-                    } catch (Exception e) {
-                        System.out.println(e);
-                    }
-                    // checks for "RETR" command ignoring case
-                } else if (sentence.toUpperCase().startsWith("RETR")) {
-                    try {
-                        retr(port, sentence, controlOut, dataSocket);
-                    } catch (Exception e) {
-                        System.out.println(e);
-                    }
-                    // checks for "STOR" command ignoring case
-                } else if (sentence.toUpperCase().startsWith("STOR")) {
-                    try {
-                        stor(port, sentence, controlOut, controlIn, dataSocket);
-                    } catch (Exception e) {
-                        System.out.println(e);
-                    }
+                    //If you made it this far your connected                
+                    System.out.println("Connected to Server.");
+                    isOpen = true;
+                    // line typed by user
+                    while(isOpen){
+                        sentence = inFromUser.readLine();
+                        tokens = new StringTokenizer(sentence);
+                        switch(tokens.nextToken().toUpperCase()){
+                            case "LIST":
+                                list(port,sentence,controlOut,dataSocket);
+                                break;
+                            case "LIST:":
+                                list(port,sentence,controlOut,dataSocket);
+                                break;
+                            case "RETR":
+                                retr(port,sentence,controlOut,dataSocket);
+                                break;
+                            case "RETR:":
+                                retr(port,sentence,controlOut,dataSocket);
+                                break;
+                            case "STOR":
+                                stor(port, sentence, controlOut, controlIn, dataSocket);
+                                break;
+                            case "STOR:":
+                                stor(port, sentence, controlOut, controlIn, dataSocket);
+                                break;
+                            case "CLOSE":
+                                quit(port,sentence, controlOut);
+                                isOpen = false;
+                                clientgo = false;
+                                break;
+                            case "CLOSE:":
+                                quit(port,sentence, controlOut);
+                                isOpen = false;
+                                clientgo = false;
+                                break;
+                            default:
+                                System.out.println("Invalid Command");
+                            }
+                            
+                    }   
+                } catch (Exception e){
+                    //If you can't connect its a bad name or port
+                    System.out.println("Server not available or Bad Name/Port");
+                    System.out.println("You can try to connect again");
+                    isOpen = false;
                 }
-
+            } else if (myCommand.equals("QUIT")|| myCommand.equals("CLOSE")){
+                //No Connection Made. So nothing todo.
+                System.out.println("GoodBye!");
+                clientgo = false;
+            } else if (myCommand.equals("CONNECT")){
+                System.out.println("Not enough connection parameters");
             }
-            // if client has not connected yet
-        } else if (sentence.toUpperCase().startsWith("LIST")
-                || sentence.toUpperCase().startsWith("RETR")
-                || sentence.toUpperCase().startsWith("STOR")
-                || sentence.toUpperCase().startsWith("QUIT")) {
-            System.out.println("Must be connected first (command:" +
-                    "CONNECT <server name/IP address> <server port>");
-            // if command doesn't match any known command
-        } else {
-            System.out.println("Not a valid command. Please connect first" +
-                    "(command: CONNECT <server name/IP address> <server port>)"
-            );
+            else{
+                System.out.println("You Need to connect to a server first");
+            }
         }
     }
-
     /******************************************************************
      * Lists all files in server's directory.
      *
@@ -149,7 +168,6 @@ class FTPClient {
                              String sentence,
                              DataOutputStream controlOut,
                              Socket dataSocket) throws Exception {
-
         // Create server socket
         int dPort = port + 2;
         ServerSocket welcomeData = new ServerSocket(dPort);
@@ -227,21 +245,18 @@ class FTPClient {
 
             // Checks to see if the file was found
             if (status.equals("200 OK")) {
-                System.out.println("File Downloaded!");
-
+                System.out.println("Downloading File...");
+                
                 // Writes/downloads the file line by line
                 String line;
                 while (!(line = inData.readUTF()).equals(EOF)) {
                     stringBuffer.append(line);
                 }
-
-                System.out.println("Downloading File..." + "\n");
                 Files.write(filePath, stringBuffer.toString().getBytes());
-
+                System.out.println("File Downloaded!");
             } else {
                 System.out.println("Error. File could not be downloaded.");
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -252,8 +267,6 @@ class FTPClient {
         endOfCommand();
     }
 
-    //TODO controlIn from stor method needs to be removed from comment below and method calls/params
-    // TODO (continued) after 200/550 code issue fixed (see other todos)
     /******************************************************************
      * Stores specified file on server.
      *
@@ -266,23 +279,19 @@ class FTPClient {
      * @return void
      ******************************************************************/
     private static void stor(int port,
-                             String sentence,
-                             DataOutputStream controlOut,
-                             DataInputStream controlIn,
-                             Socket dataSocket) throws Exception {
+                        String sentence,
+                        DataOutputStream controlOut,
+                        DataInputStream controlIn,
+                        Socket dataSocket) throws Exception {
         // Create server socket
         int dPort = port + 2;
         StringTokenizer tokens = new StringTokenizer(sentence);
-        String fileName;
-
-        // get the filename from the user input
-        try {
-            fileName = tokens.nextToken(); // pass the connect command
-            fileName = tokens.nextToken();
-        } catch (NoSuchElementException e) {
-            System.out.println("No filename specified");
+        if(tokens.countTokens() < 2){
+            System.out.println("No filename given.");
             return;
         }
+        String fileName = tokens.nextToken();
+        fileName = tokens.nextToken();
 
         // Create a file object with the path of the file. Some code from:
         // http://www.avajava.com/tutorials/lessons/
@@ -297,11 +306,11 @@ class FTPClient {
         //Create a socket to listen on
         ServerSocket welcomeData = new ServerSocket(dPort);
         //Pass the server the port the client is listening on, and the tcommand
-        controlOut.writeBytes(dPort + " " + sentence + " " + '\n');
+        controlOut.writeBytes(dPort + " " + sentence + '\n');
         //Accept the data socket from the server
         dataSocket = welcomeData.accept();
         DataOutputStream datacontrolOut =
-                new DataOutputStream(dataSocket.getOutputStream());
+        new DataOutputStream(dataSocket.getOutputStream());
 
         //Read from the file and store in a String Buffer
         FileReader fileReader = new FileReader(file);
@@ -310,21 +319,19 @@ class FTPClient {
         String line;
 
         try {
+            System.out.println("Uploading file . . .");
             while ((line = bufferedReader.readLine()) != null) {
                 datacontrolOut.writeUTF(line +
-                        System.getProperty("line.separator"));
+                System.getProperty("line.separator"));
             }
             datacontrolOut.writeUTF(EOF);
             datacontrolOut.close();
             fileReader.close();
-            System.out.println("Uploading file . . .");
-            //datacontrolOut.writeUTF(stringBuffer.toString());
         } catch (IOException e) {
             System.out.println(e);
         }
 
-        //TODO make the status code like it is in retr() method, should be sent on data socket before anything
-        //TODO (continued) needs to be fixed on client and server!
+        //Status to make sure file was recieved on server side
         String status = controlIn.readUTF().toString();
         if (status.equals("200 OK")) {
             System.out.println("File Uploaded!");
@@ -332,8 +339,30 @@ class FTPClient {
             System.out.println("Error. File not uploaded.");
         }
 
+        //CLOSE SOCKET
+        welcomeData.close();
+        endOfCommand();
+        return;
     }
-
+    /******************************************************************
+     * Quits the application
+     *
+     * @param port connection socket port
+     * @param sentence user input
+     * @param controlOut output stream to server
+     *
+     * @return void
+     ******************************************************************/
+    private static void quit(int port,String sentence,DataOutputStream controlOut) throws Exception {
+        //Tells the Server to close the connection on the port. 
+        try{
+            controlOut.writeBytes(port + " " + sentence + " " + "\n");
+        } catch (Exception e){
+            e.printStackTrace();
+        } finally {
+            controlOut.close();
+        }
+    }
     /*****************************************************************
      * prints command list upon completion of each command
      *
@@ -344,6 +373,6 @@ class FTPClient {
                 "\nLIST (list files on server)" +
                 "\nRETR <filename> (retrieves specified file from server)" +
                 "\nSTOR <filename> (stores specified file on server)" +
-                "\nQUIT (quits program)");
+                "\nCLOSE (closes connection and quits program)");
     }
 }
