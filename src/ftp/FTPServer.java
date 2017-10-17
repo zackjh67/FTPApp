@@ -14,7 +14,7 @@ import java.util.*;
  * and send and store a specified file to the server.
  *
  * @author Mike Ames
- * @author Phil Garza
+ * @author Phil "The Chosen One" Garza aka Dipstick
  * @author Zachary Hern
  * @author Adam Slifco
  *
@@ -31,13 +31,18 @@ class FTPServer {
 
         // socket outside of while loop for listening
         ServerSocket welcomeSocket = new ServerSocket(connSockNum);
+        System.out.println("FTP Server Stared on Port 8415");
 
         // infinite loop to constantly service clients
         while (true) {
             // connection socket
+            System.out.println("Waiting for connection");
             Socket connectionSocket = welcomeSocket.accept();
-            // handles individual ftp clients
+            // handles individual ftp clientsls
             FTPHandler handler = new FTPHandler(connectionSocket);
+            //Output Connection
+            System.out.println("Serving connection " + connectionSocket.getInetAddress() +
+                    " on Port: " + connectionSocket.getPort());
             // start thread
             handler.start();
         }
@@ -52,40 +57,41 @@ class FTPHandler extends Thread {
     static final String EOF = "!EOF!";
 
     /* server file path */
-    static final String serverFilePath = "./res/server_files/";
+    static final String serverFilePath = System.getProperty("user.dir").toString()+ File.separator + "src" +
+            File.separator + "server_files" + File.separator;
 
     /* data stream to client */
-     DataOutputStream outToClient;
+    DataOutputStream outToClient;
 
     /* reads data from client */
-     BufferedReader inFromClient;
+    BufferedReader inFromClient;
 
     /* string sent from client */
-     String fromClient;
+    String fromClient;
 
     /* tokenizer for fromClient */
-     StringTokenizer tokens;
+    StringTokenizer tokens;
 
     /* first line of string */
-     String firstLine;
+    String firstLine;
 
     /* sent command from client */
-     String clientCommand;
+    String clientCommand;
 
     /* name of specified file*/
-     String filename;
+    String filename;
 
     /* client data string */
-     String clientSentence;
+    String clientSentence;
 
     /* boolean for quitting actions */
-     boolean quit = false;
+    boolean quit = false;
 
     /* connection port */
-     int port;
+    int port;
 
     /* connection socket between server and client */
-     Socket connectionSocket;
+    Socket connectionSocket;
 
     /******************************************************************
      * Handles each client connection socket.
@@ -98,6 +104,8 @@ class FTPHandler extends Thread {
                 new DataOutputStream(connectionSocket.getOutputStream());
         inFromClient = new BufferedReader(new
                 InputStreamReader(connectionSocket.getInputStream()));
+        System.out.println("FTP Client connected " + connectionSocket.getInetAddress() +
+                " Port:" + connectionSocket.getPort());
     }
 
     /******************************************************************
@@ -119,26 +127,27 @@ class FTPHandler extends Thread {
                 port = Integer.parseInt(firstLine);
                 //second line is the command
                 clientCommand = tokens.nextToken();
+                try {
+                    filename = tokens.nextToken();
+                } catch (Exception e ) {}
 
                 //handle each different command here
                 if (clientCommand.toUpperCase().equals("LIST")) {
-
                     listCommand(connectionSocket, port);
                 }
                 if (clientCommand.toUpperCase().equals("RETR")) {
-
                     retrCommand(connectionSocket, port);
                 }
                 if (clientCommand.toUpperCase().equals("STOR")) {
-                    String fileName = tokens.nextToken();
-                    storCommand(connectionSocket, port, fileName);
+                    storCommand(connectionSocket, port, filename);
                 }
-                if (clientCommand.toUpperCase().equals("QUIT")) {
+                if (clientCommand.toUpperCase().equals("CLOSE")) {
                     quitCommand(connectionSocket, port);
+                    quit = true;
                 }
             } catch (Exception e) {
                 System.out.println(e);
-                e.printStackTrace();
+                System.out.println("Connection Lost..");
                 //stop loop, might change later
                 quit = true;
             }
@@ -164,10 +173,10 @@ class FTPHandler extends Thread {
         File[] listOfFiles = folder.listFiles();
 
         // iterate through each file and print name to output stream
-        for (int i = 0; i < listOfFiles.length; i++) {
+        for (File myFile: listOfFiles){
             // only shows files, not directories
-            if (listOfFiles[i].isFile()) {
-                dataOutToClient.writeUTF(listOfFiles[i].getName());
+            if (myFile.isFile()) {
+                dataOutToClient.writeUTF(myFile.getName());
             }
         }
         // end transaction
@@ -195,7 +204,8 @@ class FTPHandler extends Thread {
         try {
             filename = tokens.nextToken().toString();
         } catch (NoSuchElementException e) {
-            System.out.println("No filename specified");
+            dataOutToClient.writeUTF("550 ERROR");
+            dataSocket.close();
             return;
         }
 
@@ -212,7 +222,6 @@ class FTPHandler extends Thread {
             // create fileReader to read the file line by line
             FileReader fileReader = new FileReader(folders);
             BufferedReader buffReader = new BufferedReader(fileReader);
-            StringBuffer strBuffer = new StringBuffer();
 
             // Iterates through file line by line until end of file is reached
             try {
@@ -305,6 +314,7 @@ class FTPHandler extends Thread {
         return;
     }
 
+
     /******************************************************************
      * Quits connection to client.
      *
@@ -314,7 +324,13 @@ class FTPHandler extends Thread {
      * @return void
      ******************************************************************/
     private void quitCommand(Socket connectionSocket, int port) throws Exception {
-        connectionSocket.close();
-        System.out.println("Control connection closed");
+        try{
+            System.out.println("Connection closed to client " + connectionSocket.getInetAddress()
+                    + " Port:" + connectionSocket.getPort());
+            connectionSocket.close();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
     }
 }
