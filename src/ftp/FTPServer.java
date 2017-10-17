@@ -57,7 +57,7 @@ class FTPHandler extends Thread {
     static final String EOF = "!EOF!";
 
     /* server file path */
-    static final String serverFilePath ="." + File.separator + "src" + File.separator +
+    static final String serverFilePath ="." + File.separator +
         "server_files" + File.separator;
 
     /* data stream to client */
