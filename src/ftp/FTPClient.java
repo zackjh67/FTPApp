@@ -27,8 +27,8 @@ class FTPClient {
     static final String EOF = "!EOF!";
 
     /* filepath for client files */
-    static final String clientFilePath = System.getProperty("user.dir").toString() +
-            File.separator + "src"+ File.separator+ "client_files" + File.separator;
+    static final String clientFilePath = "." + File.separator+ "client_files" 
+        + File.separator;
 
     /******************************************************************
      * Main method for running program based on commands.
