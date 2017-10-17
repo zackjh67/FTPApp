@@ -27,8 +27,8 @@ class FTPClient {
     static final String EOF = "!EOF!";
 
     /* filepath for client files */
-    static final String clientFilePath = "." + File.separator+ "client_files" 
-        + File.separator;
+    static final String clientFilePath = "." + File.separator + "src" + File.separator +
+            "client_files" + File.separator;
 
     /******************************************************************
      * Main method for running program based on commands.
@@ -58,7 +58,7 @@ class FTPClient {
                 "\nLIST (list files on server)" +
                 "\nRETR <filename> (retrieves specified file from server)" +
                 "\nSTOR <filename> (stores specified file on server)" +
-                "\nCLOSE (closes connection and quits program)");
+                "\nQUIT (closes connection and quits program)");
 
         /* User input */
         BufferedReader inFromUser =
@@ -121,12 +121,12 @@ class FTPClient {
                             case "STOR:":
                                 stor(port, sentence, controlOut, controlIn, dataSocket);
                                 break;
-                            case "CLOSE":
+                            case "QUIT":
                                 quit(port,sentence, controlOut);
                                 isOpen = false;
                                 clientgo = false;
                                 break;
-                            case "CLOSE:":
+                            case "QUIT:":
                                 quit(port,sentence, controlOut);
                                 isOpen = false;
                                 clientgo = false;
@@ -142,7 +142,7 @@ class FTPClient {
                     System.out.println("You can try to connect again");
                     isOpen = false;
                 }
-            } else if (myCommand.equals("QUIT")|| myCommand.equals("CLOSE")){
+            } else if (myCommand.equals("QUIT")|| myCommand.equals("QUIT")){
                 //No Connection Made. So nothing todo.
                 System.out.println("GoodBye!");
                 clientgo = false;
@@ -393,6 +393,6 @@ class FTPClient {
                 "\nLIST (list files on server)" +
                 "\nRETR <filename> (retrieves specified file from server)" +
                 "\nSTOR <filename> (stores specified file on server)" +
-                "\nCLOSE (closes connection and quits program)");
+                "\nQUIT (closes connection and quits program)");
     }
 }

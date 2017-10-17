@@ -57,7 +57,7 @@ class FTPHandler extends Thread {
     static final String EOF = "!EOF!";
 
     /* server file path */
-    static final String serverFilePath ="." + File.separator +
+    static final String serverFilePath ="." + File.separator + "src" + File.separator +
         "server_files" + File.separator;
 
     /* data stream to client */
@@ -79,7 +79,7 @@ class FTPHandler extends Thread {
     String clientCommand;
 
     /* name of specified file*/
-    String filename;
+    String fileName;
 
     /* client data string */
     String clientSentence;
@@ -127,9 +127,6 @@ class FTPHandler extends Thread {
                 port = Integer.parseInt(firstLine);
                 //second line is the command
                 clientCommand = tokens.nextToken();
-                try {
-                    filename = tokens.nextToken();
-                } catch (Exception e ) {}
 
                 //handle each different command here
                 if (clientCommand.toUpperCase().equals("LIST")) {
@@ -139,9 +136,9 @@ class FTPHandler extends Thread {
                     retrCommand(connectionSocket, port);
                 }
                 if (clientCommand.toUpperCase().equals("STOR")) {
-                    storCommand(connectionSocket, port, filename);
+                    storCommand(connectionSocket, port);
                 }
-                if (clientCommand.toUpperCase().equals("CLOSE")) {
+                if (clientCommand.toUpperCase().equals("QUIT")) {
                     quitCommand(connectionSocket, port);
                     quit = true;
                 }
@@ -200,9 +197,9 @@ class FTPHandler extends Thread {
         DataOutputStream dataOutToClient =
                 new DataOutputStream(dataSocket.getOutputStream());
 
-        // get the filename from the user input
+        // get the fileName from the user input
         try {
-            filename = tokens.nextToken().toString();
+            fileName = tokens.nextToken().toString();
         } catch (NoSuchElementException e) {
             dataOutToClient.writeUTF("550 ERROR");
             dataSocket.close();
@@ -210,7 +207,7 @@ class FTPHandler extends Thread {
         }
 
         // read files into file array
-        Path filepath = Paths.get(serverFilePath + filename);
+        Path filepath = Paths.get(serverFilePath + fileName);
         File folders = new File(filepath.toString());
 
         // Checks to see if the file exists in current directory
@@ -256,15 +253,16 @@ class FTPHandler extends Thread {
      *
      * @param connectionSocket connection socket to client
      * @param port connection socket port
-     * @param fileName name of specified file
      *
      * @return void
      ******************************************************************/
     private void storCommand(Socket connectionSocket,
-                             int port,
-                             String fileName) throws Exception {
+                             int port) throws Exception {
 
-        Path filePath = Paths.get(serverFilePath + "OUT" + fileName);
+        try {
+            fileName = tokens.nextToken();
+        } catch (Exception e ) {}
+        Path filePath = Paths.get(serverFilePath + fileName);
 
         Files.deleteIfExists(filePath);
         try {
