@@ -78,7 +78,7 @@ class FTPHandler extends Thread {
     /* client data string */
      String clientSentence;
 
-    /* boolean for quitting actoins */
+    /* boolean for quitting actions */
      boolean quit = false;
 
     /* connection port */
@@ -131,13 +131,14 @@ class FTPHandler extends Thread {
                 }
                 if (clientCommand.toUpperCase().equals("STOR")) {
                     String fileName = tokens.nextToken();
-                    storCommand(connectionSocket, port, outToClient, fileName);
+                    storCommand(connectionSocket, port, fileName);
                 }
                 if (clientCommand.toUpperCase().equals("QUIT")) {
                     quitCommand(connectionSocket, port);
                 }
             } catch (Exception e) {
                 System.out.println(e);
+                e.printStackTrace();
                 //stop loop, might change later
                 quit = true;
             }
@@ -245,44 +246,62 @@ class FTPHandler extends Thread {
      * Stores file from client.
      *
      * @param connectionSocket connection socket to client
-     * @param dataPort connection socket port
-     * @param clientOut stream for data to client
+     * @param port connection socket port
      * @param fileName name of specified file
      *
      * @return void
      ******************************************************************/
     private void storCommand(Socket connectionSocket,
-                             int dataPort,
-                             DataOutputStream clientOut,
+                             int port,
                              String fileName) throws Exception {
 
-        //TODO figure out what this is and fix it please (testStored.txt)
-        Path filePath = Paths.get(serverFilePath + "testStored.txt");
+        Path filePath = Paths.get(serverFilePath + "OUT" + fileName);
 
-        Socket dataSocket = new Socket(connectionSocket.getInetAddress(), dataPort);
-        DataInputStream inData = new DataInputStream(new BufferedInputStream(dataSocket.getInputStream()));
+        Files.deleteIfExists(filePath);
+        try {
+            Files.createFile(filePath);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error Creating File");
+            outToClient.writeUTF("550 Error");
+            return;
+        }
+        outToClient.writeUTF("200 OK");
+
+        Socket dataSocket = new Socket(connectionSocket.getInetAddress(), port);
+
+        DataInputStream dataInFromClient =
+                new DataInputStream(new BufferedInputStream(dataSocket.getInputStream()));
+
+        DataOutputStream dataOutToClient =
+                new DataOutputStream(dataSocket.getOutputStream());
+
         StringBuffer stringBuffer = new StringBuffer();
-
 
         try {
             String line;
-            while (!(line = inData.readUTF()).equals(EOF)) {
+            while (!(line = dataInFromClient.readUTF()).equals(EOF)) {
                 stringBuffer.append(line);
             }
+            System.out.println("File " + fileName + " recieved from client.");
             Files.write(filePath, stringBuffer.toString().getBytes());
 
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        //TODO make the status code like it is in retr() method, should be sent on data socket before anything
-        //TODO (continued) needs to be fixed on client and server!
         File file = new File(filePath.toString());
         if (file.exists()) {
-            clientOut.writeUTF("200 OK");
+            dataOutToClient.writeUTF("200 OK");
+            System.out.println("File saved at: " + filePath.toString());
         } else {
-            clientOut.writeUTF("500 Error");
+            dataOutToClient.writeUTF("550 Error");
         }
+        dataInFromClient.close();
+        dataOutToClient.close();
+        dataSocket.close();
+        System.out.println("Data socket closed.");
+
         return;
     }
 
@@ -295,6 +314,7 @@ class FTPHandler extends Thread {
      * @return void
      ******************************************************************/
     private void quitCommand(Socket connectionSocket, int port) throws Exception {
-
+        connectionSocket.close();
+        System.out.println("Control connection closed");
     }
 }

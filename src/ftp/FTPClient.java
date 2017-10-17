@@ -116,7 +116,10 @@ class FTPClient {
                         stor(port, sentence, controlOut, controlIn, dataSocket);
                     } catch (Exception e) {
                         System.out.println(e);
+                        e.printStackTrace();
                     }
+                } else if (sentence.toUpperCase().startsWith("QUIT")) {
+                    quit(sentence, controlOut, ControlSocket);
                 }
 
             }
@@ -252,15 +255,13 @@ class FTPClient {
         endOfCommand();
     }
 
-    //TODO controlIn from stor method needs to be removed from comment below and method calls/params
-    // TODO (continued) after 200/550 code issue fixed (see other todos)
     /******************************************************************
      * Stores specified file on server.
      *
      * @param port connection socket port
      * @param sentence user input
      * @param controlOut output stream to server
-     * @param controlIn control socket input stream
+     * @param controlIn input stream from server
      * @param dataSocket socket for sending/receiving data
      *
      * @return void
@@ -270,8 +271,9 @@ class FTPClient {
                              DataOutputStream controlOut,
                              DataInputStream controlIn,
                              Socket dataSocket) throws Exception {
-        // Create server socket
+
         int dPort = port + 2;
+
         StringTokenizer tokens = new StringTokenizer(sentence);
         String fileName;
 
@@ -296,41 +298,83 @@ class FTPClient {
 
         //Create a socket to listen on
         ServerSocket welcomeData = new ServerSocket(dPort);
-        //Pass the server the port the client is listening on, and the tcommand
+        //Pass the server the port the client is listening on, and the command
         controlOut.writeBytes(dPort + " " + sentence + " " + '\n');
+
+        //check to see if the server successfully created a file to save the content to
+        String serverFileCreationError = controlIn.readUTF().toString();
+        if (serverFileCreationError.equals("550 Error")) {
+            System.out.println("Error creating the file on the server side. Exiting");
+            endOfCommand();
+            welcomeData.close();
+            dataSocket.close();
+            return;
+        }
         //Accept the data socket from the server
         dataSocket = welcomeData.accept();
-        DataOutputStream datacontrolOut =
+
+        DataOutputStream dataControlOut =
                 new DataOutputStream(dataSocket.getOutputStream());
 
-        //Read from the file and store in a String Buffer
         FileReader fileReader = new FileReader(file);
         BufferedReader bufferedReader = new BufferedReader(fileReader);
-        //StringBuffer stringBuffer = new StringBuffer();
+
         String line;
 
+        //Read from the file and store in a String Buffer
         try {
             while ((line = bufferedReader.readLine()) != null) {
-                datacontrolOut.writeUTF(line +
+                dataControlOut.writeUTF(line +
                         System.getProperty("line.separator"));
             }
-            datacontrolOut.writeUTF(EOF);
-            datacontrolOut.close();
+            dataControlOut.writeUTF(EOF);
             fileReader.close();
             System.out.println("Uploading file . . .");
-            //datacontrolOut.writeUTF(stringBuffer.toString());
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println(e);
+            e.printStackTrace();
         }
 
-        //TODO make the status code like it is in retr() method, should be sent on data socket before anything
-        //TODO (continued) needs to be fixed on client and server!
-        String status = controlIn.readUTF().toString();
+        DataInputStream inFromServer = new DataInputStream(dataSocket.getInputStream());
+        String status = inFromServer.readUTF().toString();
+
         if (status.equals("200 OK")) {
             System.out.println("File Uploaded!");
         } else {
             System.out.println("Error. File not uploaded.");
         }
+        inFromServer.close();
+        welcomeData.close();
+        dataControlOut.close();
+        dataSocket.close();
+        endOfCommand();
+        return;
+    }
+
+    private static void quit(String sentence, DataOutputStream controlOut, Socket controlSocket) {
+        try {
+            controlOut.writeBytes(1 + " QUIT");
+            //controlSocket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        try {
+            //controlSocket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("The Connection has been severed. Restarting client.");
+        System.out.println();
+        System.out.println();
+
+        try {
+            String[] args = {};
+            main(args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
 
     }
 
